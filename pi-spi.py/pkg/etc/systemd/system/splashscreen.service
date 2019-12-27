@@ -1,0 +1,15 @@
+[Unit]
+Description=Splashscreen
+#After=network-online.target
+#Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/splashscreen-service.sh
+StandardOutput=journal+console
+User=pi
+#Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+
