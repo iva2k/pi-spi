@@ -14,13 +14,13 @@ from spiflash import spiflash
 
 try:
     import RPi.GPIO as GPIO
-    GPIO.setmode(GPIO.BCM)
-    GPIO.setwarnings(False)
 except:
     print("RPi.GPIO: incompatible platform, using rpidevmocks.MockGPIO")
     from rpidevmocks import MockGPIO
     GPIO = MockGPIO()
 
+GPIO.setmode(GPIO.BCM)
+GPIO.setwarnings(False)
 
 #import gpiozero
 

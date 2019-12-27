@@ -60,7 +60,13 @@ sudo apt-get install python-rpi.gpio python3-rpi.gpio
 ## sudo pip-3.2 install RPi.GPIO gpiozero
 
 ## Pi Mocks (ONLY needed on platforms other than Pi, e.g. MacOS, Windows - for cross-development)
-sudo pip install git+https://github.com/iva2k/raspi-device-mocks.git
+pip install git+https://github.com/iva2k/raspi-device-mocks.git
+# Note, for development, use:
+pip install -e git+https://github.com/iva2k/raspi-device-mocks.git#egg=raspi-device-mocks
+# ... then can edit source in <env>/src/rpidevmocks/ and commit to github.
+# Or, can link source directly from another location:
+pip install -e c:/dev/raspi-device-mocks --no-binary :all:
+
 ```
 
 ### SAMBA File Sharing

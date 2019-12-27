@@ -12,6 +12,12 @@ SECTOR_ERASE = 0x20
 CHIP_ERASE = 0xC7
 JEDEC_ID = 0x9F
 
+# Time in milliseconds:
+MAXWAIT = 5000
+WAITSTEP = 5
+WAITWREN = 5
+WAITWRDIS = 5
+
 from time import sleep
 # from datetime import datetime
 try:
@@ -35,8 +41,9 @@ class spiflash(object):
 # W25Q64FV(QPI) EFH 60H 17H 64         4          32,64      2.7-3.6 33/50/80/104  35:18:1
 
     def __init__(self, bus, cs, mode = 0, max_speed_hz = 1000000):
+        print("spiflash.__init__(bus=",bus, ", cs=", cs, ")")
         self.spi = spidev.SpiDev()
-        self.spi.open(bus,cs)       
+        self.spi.open(bus, cs)       
         self.spi.max_speed_hz = max_speed_hz
         self.spi.mode = mode
         # self.spi.bits_per_word = 0
@@ -60,22 +67,22 @@ class spiflash(object):
     # writes ----------------------------------------------------------------------------------
     def write_enable(self):
         self.spi.xfer2([WREN])
-        # sleep_ms(5)
+        # sleep_ms(WAITWREN)
 
     def write_disable(self):
         self.spi.xfer2([WRDI])
-        # sleep_ms(5)
+        # sleep_ms(WAITWRDIS)
 
     def write_status(self,s1,s2):
         self.write_enable()
-        sleep_ms(5)
+        sleep_ms(WAITWREN)
         self.spi.xfer2([WRSR,s1,s2])
         # sleep_ms(10)
         self.wait_until_not_busy()
 
     def write_page(self, addr1, addr2, page):
         self.write_enable()
-        sleep_ms(5)
+        sleep_ms(WAITWREN)
         xfer = [WRITE, addr1, addr2, 0] + page[:256]
         self.spi.xfer2(xfer)
         # sleep_ms(10)
@@ -86,9 +93,9 @@ class spiflash(object):
         return self.read_page(addr1, addr2)[:256] == page[:256]
 
     # erases ----------------------------------------------------------------------------------
-    def erase_sector(self,addr1, addr2):
+    def erase_sector(self, addr1, addr2):
         self.write_enable()
-        sleep_ms(5)
+        sleep_ms(WAITWREN)
         xfer = [SECTOR_ERASE, addr1, addr2, 0]
         self.spi.xfer2(xfer)
         # sleep_ms(10)
@@ -96,21 +103,26 @@ class spiflash(object):
 
     def erase_all(self):
         self.write_enable()
-        sleep_ms(5)
+        sleep_ms(WAITWREN)
         self.spi.xfer2([CHIP_ERASE])
         # sleep_ms(10)
         self.wait_until_not_busy()
 
     # misc ----------------------------------------------------------------------------------
 
-    # Wait for the chip.
+    # Wait for the chip. Timeout after MAXWAIT
     def wait_until_not_busy(self):
+        max_wait = MAXWAIT
         statreg = self.spi.xfer2([RDSR,RDSR])[1]
         while (statreg & 0x1) == 0x1:
-            sleep_ms(5)
-            print(".", end=" ")
+            if (max_wait < 0):
+                #print("")
+                raise UserWarning('Timeout waiting %dms for device ready, statreg=%02X' % (MAXWAIT, statreg) )
+            sleep_ms(WAITSTEP)
+            #print(".", end=" ")
             #print "%r \tRead %X" % (datetime.now(), statreg)
             statreg = self.spi.xfer2([RDSR,RDSR])[1]
+            max_wait -= WAITSTEP
 
     def read_jedec_id(self):
         data = self.spi.xfer2([JEDEC_ID,0,0,0])
