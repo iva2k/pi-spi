@@ -43,7 +43,8 @@ Advanced Options > SPI > Yes > Finish
 
 ```bash
 ## spidev
-sudo apt-get install python-dev python-spidev
+sudo apt-get install python-dev python-spidev python-pip
+sudo apt-get install python3-dev python3-spidev python3-pip
 #cd ~
 #git clone https : //github.com/doceme/py-spidev.git
 #cd py-spidev
@@ -66,6 +67,7 @@ pip install -e git+https://github.com/iva2k/raspi-device-mocks.git#egg=raspi-dev
 # ... then can edit source in <env>/src/rpidevmocks/ and commit to github.
 # Or, can link source directly from another location:
 pip install -e c:/dev/raspi-device-mocks --no-binary :all:
+pip install cliff
 
 ```
 

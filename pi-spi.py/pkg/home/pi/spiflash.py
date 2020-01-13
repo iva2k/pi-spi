@@ -18,6 +18,12 @@ WAITSTEP = 5
 WAITWREN = 5
 WAITWRDIS = 5
 
+def Mbit(n):
+    return n * int(1024*1024/8)
+
+def MHz(n):
+    return n
+
 from time import sleep
 # from datetime import datetime
 try:
@@ -32,14 +38,17 @@ def sleep_ms(msecs):
 
 class spiflash(object):
 
+    chips = {
 # JEDEC ID collection (Page=256 Bytes)
 # Chip          Mfr Type ID Size(Mbit) Sector(kB) Blocks(kB) Voltage Speed(MHz) (ms):ErzChip:ErzSector:WrPage
 #                                                                    [Rd<3V/Rd/Other<3V/Other]
 # SST26VF016    BFH 26H 01H 16         4          8,32,64    2.7-3.6  80        35:18:1
 # SST26VF032    BFH 26H 02H 32         4          8,32,64    2.7-3.6  80        35:18:1
 # W25Q64FV      EFH 40H 17H 64         4          32,64      2.7-3.6 33/50/80/104  35:18:1
+        0xEF4017: { 'size': Mbit(64), 'speed': MHz(33)},
 # W25Q64FV(QPI) EFH 60H 17H 64         4          32,64      2.7-3.6 33/50/80/104  35:18:1
-
+    }
+    
     def __init__(self, bus, cs, mode = 0, max_speed_hz = 1000000):
         print("spiflash.__init__(bus=",bus, ", cs=", cs, ")")
         self.spi = spidev.SpiDev()
@@ -60,8 +69,8 @@ class spiflash(object):
         statreg2 = self.spi.xfer2([RDSR2,RDSR2])[1]
         return statreg, statreg2
 
-    def read_page(self, adr1, adr2):
-        xfer = [READ, adr1, adr2, 0] + [255 for _ in range(256)] # command + 256 dummies
+    def read_page(self, addr1, addr2):
+        xfer = [READ, addr1, addr2, 0] + [255 for _ in range(256)] # command + 256 dummies
         return self.spi.xfer2(xfer)[4:] #skip 4 first bytes (dummies)
 
     # writes ----------------------------------------------------------------------------------
@@ -131,3 +140,8 @@ class spiflash(object):
         capacity = data[3]
         return (manufacturer_id, memory_type, capacity)
 
+    def chip_specs(self):
+        data = self.read_jedec_id()
+        key = data[0] << 16 | data[1] << 8 | data [2] << 0
+        self.specs = self.chips.get(key)
+        return self.specs

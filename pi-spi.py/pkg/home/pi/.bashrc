@@ -93,6 +93,8 @@ alias la='ls -Al'
 alias l='ls -CF'
 alias s='less'
 alias g='grep'
+alias p3='python3'
+alias p2='python2'
 
 # Alias definitions.
 # You may want to put all your additions into a separate file like

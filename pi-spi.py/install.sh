@@ -31,8 +31,8 @@ fi
 
 printf "\nInstalling packages...\n"
 sudo apt-get update
-sudo apt-get install -y python-dev python-spidev
-sudo apt-get install -y python3-dev python3-spidev
+sudo apt-get install -y python-dev python-spidev python-pip python-cliff
+sudo apt-get install -y python3-dev python3-spidev python3-pip python3-cliff
 sudo apt-get install -y python-rpi.gpio python3-rpi.gpio
 sudo apt-get install -y samba samba-common-bin
 
