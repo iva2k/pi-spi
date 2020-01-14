@@ -22,7 +22,7 @@ def Mbit(n):
     return n * int(1024*1024/8)
 
 def MHz(n):
-    return n
+    return n * 1000000
 
 from time import sleep
 # from datetime import datetime
@@ -53,7 +53,7 @@ class spiflash(object):
         print("spiflash.__init__(bus=",bus, ", cs=", cs, ")")
         self.spi = spidev.SpiDev()
         self.spi.open(bus, cs)       
-        self.spi.max_speed_hz = max_speed_hz
+        self.spi.max_speed_hz = int(max_speed_hz)
         self.spi.mode = mode
         # self.spi.bits_per_word = 0
 
@@ -62,6 +62,12 @@ class spiflash(object):
             self.spi.close()
         except:
             pass
+
+    def speed_set(self, speed_hz):
+        self.spi.max_speed_hz = int(speed_hz)
+
+    def speed_get(self):
+        return self.spi.max_speed_hz
 
     # reads ----------------------------------------------------------------------------------
     def read_status(self):
