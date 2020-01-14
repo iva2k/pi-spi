@@ -343,9 +343,9 @@ class Verify(Command):
             if (debug and curaddr / pagesize % 256 == 0):
                 print('read 0x%02X%02X%02X' % (addr1, addr2, addr3))
             pr = bytearray(parsed_args.infile.read(curpage))
-            if (debug and curaddr == 0x0100 and len(pr) >= 8):
-                pr[2] = 0x55 ^ pr[2]
-                pr[7] = 0xFF ^ pr[7]
+            #if (debug and curaddr == 0x0100 and len(pr) >= 8):
+            #    pr[2] = 0x55 ^ pr[2]
+            #    pr[7] = 0xFF ^ pr[7]
             #if (debug):
             #    print_page(pr)
 
