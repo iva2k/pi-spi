@@ -170,7 +170,7 @@ class spiflash(object):
         debug         = options['debug']
         #stopshortfile = options['stopshortfile']
         #writedryrun   = options['writedryrun']
-        speed         = options['speed']
+        speed         = options['speed'] if options['speed'] != 0 else specs['speed']
 
         # Cleanup / resolve parameters
         outfileext = os.path.splitext(outfile.name)[1]
@@ -229,7 +229,7 @@ class spiflash(object):
         debug         = options['debug']
         stopshortfile = options['stopshortfile']
         #writedryrun   = options['writedryrun']
-        speed         = options['speed'] 
+        speed         = options['speed'] if options['speed'] != 0 else specs['speed']
         
         # Cleanup / resolve parameters
         infileext  = os.path.splitext(infile.name )[1]

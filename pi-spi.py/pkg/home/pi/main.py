@@ -205,23 +205,15 @@ class SpiCommand(Command):
 
     def get_parser(self, prog_name):
         parser = super().get_parser(prog_name)
+        parser.add_argument('-f', '--from'   , dest='addr_from', nargs='?',                               default='start'   , help='start address to read the data from, can be formula using {start,end,page} variables, default=start' )
+        parser.add_argument('-t', '--to'     , dest='addr_to'  , nargs='?',                               default='end'     , help='end   address to read the data   to, can be formula using {start,end,page} variables, default=end'   )
         parser.add_argument('--speed'        , dest='speed'    , nargs='?', type=int                    , default=0         , help='max SPI speed (Hz)' )
         return parser
 
-
-class Read(SpiCommand):
-    'read data from device'
-
-    def get_parser(self, prog_name):
-        parser = super().get_parser(prog_name)
-        parser.add_argument('-f', '--from'   , dest='addr_from', nargs='?',                               default='start'   , help='start address to read the data from' )
-        parser.add_argument('-t', '--to'     , dest='addr_to'  , nargs='?',                               default='end'     , help='end   address to read the data to'   )
-        #parser.add_argument('-i', '--infile' , dest='infile'   , nargs='?', type=argparse.FileType('rb'), default=sys.stdin , help='input (data) file' )
-        parser.add_argument('-o', '--outfile', dest='outfile'  , nargs='?', type=argparse.FileType('wb'), default=sys.stdout, help='output (data) file' )
-        return parser
-
-    def take_action(self, parsed_args):
+    def preparse_args(self, parsed_args):
         global chip, debug
+        #if (debug):
+        #    print('prepare_args(', parsed_args,')')
         specs = chip.chip_specs()
         pagesize = 256
         
@@ -233,12 +225,28 @@ class Read(SpiCommand):
         }
         parsed_args.addr_from = Calc.evaluate(Calc.subst_values(subs, str(parsed_args.addr_from)))
         parsed_args.addr_to   = Calc.evaluate(Calc.subst_values(subs, str(parsed_args.addr_to  )))
+        #if (debug):
+        #    print('prepare_args() output=', parsed_args)
+        return parsed_args
 
+class Read(SpiCommand):
+    'read data from device'
+
+    def get_parser(self, prog_name):
+        parser = super().get_parser(prog_name)
+        #parser.add_argument('-i', '--infile' , dest='infile'   , nargs='?', type=argparse.FileType('rb'), default=sys.stdin , help='input (data) file' )
+        parser.add_argument('-o', '--outfile', dest='outfile'  , nargs='?', type=argparse.FileType('wb'), default=sys.stdout, help='output (data) file' )
+        return parser
+
+    def take_action(self, parsed_args):
+        parsed_args = super().preparse_args(parsed_args)
+        global chip, debug
+        
         total_errors = chip.read(parsed_args.addr_from, parsed_args.addr_to, parsed_args.outfile, {
             'debug'         : debug,
             'stopshortfile' : stopshortfile,
             'writedryrun'   : writedryrun,
-            'speed'         : parsed_args.speed if parsed_args.speed != 0 else specs['speed'],
+            'speed'         : parsed_args.speed,
         })
         if (total_errors == -1):
             raise argparse.ArgumentTypeError('ADDR_TO value has to be more than ADDR_FROM')
@@ -251,32 +259,20 @@ class Verify(SpiCommand):
 
     def get_parser(self, prog_name):
         parser = super().get_parser(prog_name)
-        parser.add_argument('-f', '--from'   , dest='addr_from', nargs='?',                               default='start'   , help='start address to read the data from' )
-        parser.add_argument('-t', '--to'     , dest='addr_to'  , nargs='?',                               default='end'     , help='end   address to read the data to'   )
         parser.add_argument('-i', '--infile' , dest='infile'   , nargs='?', type=argparse.FileType('rb'), default=sys.stdin , help='input (data) file' )
         parser.add_argument('-o', '--outfile', dest='outfile'  , nargs='?', type=argparse.FileType('wb'), default=sys.stdout, help='output (diff) file' )
         return parser
 
     def take_action(self, parsed_args):
+        parsed_args = super().preparse_args(parsed_args)
         global chip, debug
-        specs = chip.chip_specs()
-        pagesize = 256
-        
-        # Cleanup / resolve parameters
-        subs = {
-            'start': 0,
-            'end'  : specs['size'],
-            'page' : pagesize,
-        }
-        parsed_args.addr_from = Calc.evaluate(Calc.subst_values(subs, str(parsed_args.addr_from)))
-        parsed_args.addr_to   = Calc.evaluate(Calc.subst_values(subs, str(parsed_args.addr_to  )))
         
         # Implementnation:
         total_errors = chip.verify(parsed_args.addr_from, parsed_args.addr_to, parsed_args.infile, parsed_args.outfile, {
             'debug'         : debug,
             'stopshortfile' : stopshortfile,
             'writedryrun'   : writedryrun,
-            'speed'         : parsed_args.speed if parsed_args.speed != 0 else specs['speed'],
+            'speed'         : parsed_args.speed,
         })
         if (total_errors == -1):
             raise argparse.ArgumentTypeError('ADDR_TO value has to be more than ADDR_FROM')
