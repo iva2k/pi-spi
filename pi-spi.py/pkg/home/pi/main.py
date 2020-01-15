@@ -60,22 +60,13 @@ def init_chip():
     global chip
     GPIO.setmode(GPIO.BCM)
     GPIO.setwarnings(False)
-    GPIO.setup(SPI_VCC, GPIO.OUT, initial=GPIO.HIGH)
-    GPIO.output(SPI_VCC, GPIO.HIGH)
-    GPIO.setup(SPI_WP, GPIO.OUT, initial=GPIO.HIGH)
-    GPIO.output(SPI_WP, GPIO.HIGH)
-    GPIO.setup(SPI_HOLD, GPIO.OUT)
-    GPIO.output(SPI_HOLD, GPIO.HIGH)
-    chip = spiflash(bus = SPI, cs = CS)
-    specs = chip.chip_specs()
-    speed = specs['speed']
-    # RPi has issue with speed higher than 16MHz.
-    # TODO: (later) incorporate into spiflash (though spiflash is platform-independent, need to make it as dependency injection? Further, spiflash needs some lower speed for probing, can use same approach for both)
-    speed = min(16000000, speed)
-    if (speed != None):
-        chip.speed_set(speed)
-        print('Setting SPI speed to %d Hz' % (chip.speed_get()))
-    
+    GPIO.setup (SPI_VCC , GPIO.OUT, initial=GPIO.HIGH)
+    GPIO.setup (SPI_WP  , GPIO.OUT, initial=GPIO.HIGH)
+    GPIO.setup (SPI_HOLD, GPIO.OUT, initial=GPIO.HIGH)
+    chip = spiflash(bus = SPI, cs = CS, options = {
+        'max_speed_hz': 16000000,     # RPi has issue with speed higher than 16MHz.
+        'id_speed_hz' : 1000000,
+    })    
 
 init_chip()
 
@@ -209,7 +200,16 @@ class Calc(ast.NodeVisitor):
         calc = cls()
         return calc.visit(tree.body[0])
 
-class Read(Command):
+class SpiCommand(Command):
+    'base class for Spi commands'
+
+    def get_parser(self, prog_name):
+        parser = super().get_parser(prog_name)
+        parser.add_argument('--speed'        , dest='speed'    , nargs='?', type=int                    , default=0         , help='max SPI speed (Hz)' )
+        return parser
+
+
+class Read(SpiCommand):
     'read data from device'
 
     def get_parser(self, prog_name):
@@ -238,6 +238,7 @@ class Read(Command):
             'debug'         : debug,
             'stopshortfile' : stopshortfile,
             'writedryrun'   : writedryrun,
+            'speed'         : parsed_args.speed if parsed_args.speed != 0 else specs['speed'],
         })
         if (total_errors == -1):
             raise argparse.ArgumentTypeError('ADDR_TO value has to be more than ADDR_FROM')
@@ -245,7 +246,7 @@ class Read(Command):
             raise argparse.ArgumentTypeError('ADDR_TO value has to be not more than chip size')
         return total_errors
 
-class Verify(Command):
+class Verify(SpiCommand):
     'verify data in device'
 
     def get_parser(self, prog_name):
@@ -275,6 +276,7 @@ class Verify(Command):
             'debug'         : debug,
             'stopshortfile' : stopshortfile,
             'writedryrun'   : writedryrun,
+            'speed'         : parsed_args.speed if parsed_args.speed != 0 else specs['speed'],
         })
         if (total_errors == -1):
             raise argparse.ArgumentTypeError('ADDR_TO value has to be more than ADDR_FROM')

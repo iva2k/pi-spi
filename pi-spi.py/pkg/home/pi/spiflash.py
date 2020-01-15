@@ -50,11 +50,16 @@ class spiflash(object):
 # W25Q64FV(QPI) EFH 60H 17H 64         4          32,64      2.7-3.6 33/50/80/104  35:18:1
     }
     
-    def __init__(self, bus, cs, mode = 0, max_speed_hz = 1000000):
-        print("spiflash.__init__(bus=",bus, ", cs=", cs, ")")
+    def __init__(self, bus, cs, mode = 0, options = {
+        'max_speed_hz': 1000000,
+        'id_speed_hz' : 1000000,
+    }):
+        print("spiflash.__init__(bus=",bus, ", cs=", cs, ", options=", options, ")")
+        self.max_speed_hz = int(options['max_speed_hz'])
+        self.id_speed_hz  = int(options['id_speed_hz' ])
         self.spi = spidev.SpiDev()
         self.spi.open(bus, cs)       
-        self.spi.max_speed_hz = int(max_speed_hz)
+        self.speed_set(int(self.id_speed_hz))
         self.spi.mode = mode
         # self.spi.bits_per_word = 0
 
@@ -65,7 +70,8 @@ class spiflash(object):
             pass
 
     def speed_set(self, speed_hz):
-        self.spi.max_speed_hz = int(speed_hz)
+        speed_hz = min(self.max_speed_hz, int(speed_hz))
+        self.spi.max_speed_hz = speed_hz
 
     def speed_get(self):
         return self.spi.max_speed_hz
@@ -141,7 +147,10 @@ class spiflash(object):
             max_wait -= WAITSTEP
 
     def read_jedec_id(self):
+        saved_speed = self.speed_get()
+        self.speed_set(self.id_speed_hz)
         data = self.spi.xfer2([JEDEC_ID,0,0,0])
+        self.speed_set(saved_speed)
         manufacturer_id = data[1]
         memory_type = data[2]
         capacity = data[3]
@@ -161,6 +170,7 @@ class spiflash(object):
         debug         = options['debug']
         #stopshortfile = options['stopshortfile']
         #writedryrun   = options['writedryrun']
+        speed         = options['speed']
 
         # Cleanup / resolve parameters
         outfileext = os.path.splitext(outfile.name)[1]
@@ -173,6 +183,9 @@ class spiflash(object):
             outfileext = '.bin'
         firstpage = pagesize - (addr_from % pagesize)
         
+        if (speed != 0):
+            self.speed_set(speed)
+            
         # Debug:
         if (debug):
             #print('parsed_args:', parsed_args)
@@ -182,6 +195,7 @@ class spiflash(object):
             print('outfile    :', outfile.name)
             print('outfileext :', outfileext)
             print('firstpage  :', firstpage)
+            print('speed      :', self.speed_get())
         
         # Implementnation:
         curpage = firstpage
@@ -215,6 +229,7 @@ class spiflash(object):
         debug         = options['debug']
         stopshortfile = options['stopshortfile']
         #writedryrun   = options['writedryrun']
+        speed         = options['speed'] 
         
         # Cleanup / resolve parameters
         infileext  = os.path.splitext(infile.name )[1]
@@ -230,6 +245,9 @@ class spiflash(object):
             outfileext = '.diff'
         firstpage = pagesize - (addr_from % pagesize)
         
+        if (speed != 0):
+            self.speed_set(speed)
+
         # Debug:
         if (debug):
             #print('parsed_args:', parsed_args)
@@ -240,6 +258,7 @@ class spiflash(object):
             print('outfile    :', outfile.name)
             print('outfileext :', outfileext)
             print('firstpage  :', firstpage)
+            print('speed      :', self.speed_get())
         
         # Implementnation:
         curpage = firstpage
