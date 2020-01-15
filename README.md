@@ -202,6 +202,10 @@ while True:
     time.sleep(0.1)
 ```
 
+## System LEDs
+
+<https://raspberrypi.stackexchange.com/questions/70013/raspberry-pi-3-model-b-system-leds>
+
 ## Chips Data
 
 ### Winbond W25Q64FV

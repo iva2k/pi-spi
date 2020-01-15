@@ -4,6 +4,7 @@ from __future__ import print_function
 
 debug = True
 stopshortfile = False
+writedryrun = True
 
 import argparse
 
@@ -21,7 +22,7 @@ from spiflash import spiflash
 try:
     import RPi.GPIO as GPIO
 except:
-    print("RPi.GPIO: incompatible platform, using rpidevmocks.MockGPIO")
+    print('RPi.GPIO: incompatible platform, using rpidevmocks.MockGPIO')
     from rpidevmocks import MockGPIO
     GPIO = MockGPIO()
 
@@ -30,16 +31,16 @@ except:
 
 #helpers -------------------------------------------------------------------------------
 def print_status(status):
-    print("status %s %s" % (bin(status[1])[2:].zfill(8), bin(status[0])[2:].zfill(8)))
+    print('status %s %s' % (bin(status[1])[2:].zfill(8), bin(status[0])[2:].zfill(8)))
 
 def print_page(page):
-    s = ""
+    s = ''
     for row in range(16):
         for col in range(16):
             addr = row * 16 + col
             if (addr < len(page)):
-                s += "%02X " % page[addr]
-        s += "\n"
+                s += '%02X ' % page[addr]
+        s += '\n'
     print(s) 
 
 def ReverseBits(byte):
@@ -50,7 +51,7 @@ def ReverseBits(byte):
 #end def
 
 def BytesToHex(Bytes):
-    return ''.join(["0x%02X " % x for x in Bytes]).strip()
+    return ''.join(['0x%02X ' % x for x in Bytes]).strip()
 #end def
 
 chip = None
@@ -68,6 +69,8 @@ def init_chip():
     chip = spiflash(bus = SPI, cs = CS)
     specs = chip.chip_specs()
     speed = specs['speed']
+    # RPi has issue with speed higher than 16MHz.
+    # TODO: (later) incorporate into spiflash (though spiflash is platform-independent, need to make it as dependency injection? Further, spiflash needs some lower speed for probing, can use same approach for both)
     speed = min(16000000, speed)
     if (speed != None):
         chip.speed_set(speed)
@@ -138,12 +141,12 @@ class Test(Command):
 
     def take_action(self, parsed_args):
         global chip, debug
-        print("read JEDEC ID...")
+        print('read JEDEC ID...')
         jedec_id = chip.read_jedec_id()
         jedec_id = jedec_id[0] << 16 | jedec_id[1] << 8 | jedec_id[2] << 0
         print('JEDEC ID:%06X' % (jedec_id))
 
-        print("read Chip Specs...")
+        print('read Chip Specs...')
         specs = chip.chip_specs()
         print('Chip specs:', specs if specs else ' unknown chip')
 
@@ -151,15 +154,15 @@ class Test(Command):
         #write_disable()
         #print_status(read_status())
 
-        print("checking busy...")
+        print('checking busy...')
         chip.wait_until_not_busy()
-        print("reading page...")
+        print('reading page...')
         p = chip.read_page(0, 0)
         print_page(p)
 
-        #print "erasing chip"
+        #print 'erasing chip'
         #chip.erase_all()
-        #print "chip erased"
+        #print 'chip erased'
 
         # for i in range(256):
         #     p[i] = (i + 2) % 256
@@ -223,7 +226,6 @@ class Read(Command):
         pagesize = 256
         
         # Cleanup / resolve parameters
-        outfileext = os.path.splitext(parsed_args.outfile.name)[1]
         subs = {
             'start': 0,
             'end'  : specs['size'],
@@ -232,47 +234,16 @@ class Read(Command):
         parsed_args.addr_from = Calc.evaluate(Calc.subst_values(subs, str(parsed_args.addr_from)))
         parsed_args.addr_to   = Calc.evaluate(Calc.subst_values(subs, str(parsed_args.addr_to  )))
 
-        if (parsed_args.addr_to <= parsed_args.addr_from):
+        total_errors = chip.read(parsed_args.addr_from, parsed_args.addr_to, parsed_args.outfile, {
+            'debug'         : debug,
+            'stopshortfile' : stopshortfile,
+            'writedryrun'   : writedryrun,
+        })
+        if (total_errors == -1):
             raise argparse.ArgumentTypeError('ADDR_TO value has to be more than ADDR_FROM')
-        if (parsed_args.addr_to > specs['size']):
+        if (total_errors == -2):
             raise argparse.ArgumentTypeError('ADDR_TO value has to be not more than chip size')
-        if (outfileext == ''):
-            outfileext = '.bin'
-        firstpage = pagesize - (parsed_args.addr_from % pagesize)
-        
-        # Debug:
-        if (debug):
-            #print('parsed_args:', parsed_args)
-            print('addr_from  :', parsed_args.addr_from)
-            print('addr_to    :', parsed_args.addr_to)
-            #print('infile     :', parsed_args.infile.name)
-            print('outfile    :', parsed_args.outfile.name)
-            print('outfileext :', outfileext)
-            print('firstpage  :', firstpage)
-            #parsed_args.outfile.write('test\n')
-        
-        # Implementnation:
-        curpage = firstpage
-        curaddr = parsed_args.addr_from
-        if (curpage > parsed_args.addr_to - curaddr):
-            curpage = parsed_args.addr_to - curaddr
-        while curaddr < parsed_args.addr_to:
-            addr1 = (curaddr >> 16) & 0x0000FF
-            addr2 = (curaddr >>  8) & 0x0000FF
-            addr3 = (curaddr >>  0) & 0x0000FF
-            p = chip.read_page(addr1, addr2)[addr3:]
-            p = p[:curpage]
-            #if (debug):
-            #    print('read 0x%02X%02X%02X %d' % (addr1, addr2, addr3, curpage))
-            #    #print_page(p)
-            if (debug and curaddr / pagesize % 256 == 0):
-                print('read 0x%02X%02X%02X' % (addr1, addr2, addr3))
-            parsed_args.outfile.write(bytes(p))
-            curaddr += curpage
-            curpage = pagesize
-            if (curpage > parsed_args.addr_to - curaddr):
-                curpage = parsed_args.addr_to - curaddr
-        return None
+        return total_errors
 
 class Verify(Command):
     'verify data in device'
@@ -291,8 +262,6 @@ class Verify(Command):
         pagesize = 256
         
         # Cleanup / resolve parameters
-        infileext  = os.path.splitext(parsed_args.infile.name )[1]
-        outfileext = os.path.splitext(parsed_args.outfile.name)[1]
         subs = {
             'start': 0,
             'end'  : specs['size'],
@@ -300,87 +269,17 @@ class Verify(Command):
         }
         parsed_args.addr_from = Calc.evaluate(Calc.subst_values(subs, str(parsed_args.addr_from)))
         parsed_args.addr_to   = Calc.evaluate(Calc.subst_values(subs, str(parsed_args.addr_to  )))
-
-        if (parsed_args.addr_to <= parsed_args.addr_from):
-            raise argparse.ArgumentTypeError('ADDR_TO value has to be more than ADDR_FROM')
-        if (parsed_args.addr_to > specs['size']):
-            raise argparse.ArgumentTypeError('ADDR_TO value has to be not more than chip size')
-        if (infileext == ''):
-            infileext = '.bin'
-        if (outfileext == ''):
-            outfileext = '.diff'
-        firstpage = pagesize - (parsed_args.addr_from % pagesize)
-        
-        # Debug:
-        if (debug):
-            #print('parsed_args:', parsed_args)
-            print('addr_from  :', parsed_args.addr_from)
-            print('addr_to    :', parsed_args.addr_to)
-            print('infile     :', parsed_args.infile)
-            print('infileext  :', infileext)
-            print('outfile    :', parsed_args.outfile.name)
-            print('outfileext :', outfileext)
-            print('firstpage  :', firstpage)
-            #parsed_args.outfile.write('test\n')
         
         # Implementnation:
-        curpage = firstpage
-        curaddr = parsed_args.addr_from
-        total_errors = 0
-        errors = 0
-        shortfile = False
-        if (curpage > parsed_args.addr_to - curaddr):
-            curpage = parsed_args.addr_to - curaddr
-        while curaddr < parsed_args.addr_to:
-            addr1 = (curaddr >> 16) & 0x0000FF
-            addr2 = (curaddr >>  8) & 0x0000FF
-            addr3 = (curaddr >>  0) & 0x0000FF
-            p = chip.read_page(addr1, addr2)[addr3:]
-            p = p[:curpage]
-            #if (debug):
-            #    print('read 0x%02X%02X%02X %d' % (addr1, addr2, addr3, curpage))
-            #    #print_page(p)
-            if (debug and curaddr / pagesize % 256 == 0):
-                print('read 0x%02X%02X%02X' % (addr1, addr2, addr3))
-            pr = bytearray(parsed_args.infile.read(curpage))
-            #if (debug and curaddr == 0x0100 and len(pr) >= 8):
-            #    pr[2] = 0x55 ^ pr[2]
-            #    pr[7] = 0xFF ^ pr[7]
-            #if (debug):
-            #    print_page(pr)
-
-            errors = 0
-            for i in range(curpage):
-                if (i >= len(pr)):
-                    if not shortfile:
-                        print('input file length is %d, shorter than device data' % (curaddr + i))
-                    parsed_args.outfile.write(bytes('> (no data)\r\n< %08X: %02X\r\n---\r\n' % (curaddr+i, p[i]), 'utf-8'))
-                    shortfile = True
-                    if stopshortfile:
-                        # stop reporting for shorter file
-                        errors += curpage - i
-                        break
-                    errors += 1
-                elif p[i] != pr[i]:
-                    print('  0x%08X: expect 0x%02X read 0x%02X' % (curaddr + i, pr[i], p[i]))
-                    parsed_args.outfile.write(bytes('> %08X: %02X\r\n< %08X: %02X\r\n---\r\n' % (curaddr+i, pr[i], curaddr+i, p[i]), 'utf-8'))
-                    errors += 1
-
-            if errors > 0:
-                total_errors += errors
-                print('verify 0x%02X%02X%02X %d: %d errors' % (addr1, addr2, addr3, curpage, errors))
-
-            curaddr += curpage
-            curpage = pagesize
-            if (curpage > parsed_args.addr_to - curaddr):
-                curpage = parsed_args.addr_to - curaddr
-
-            if shortfile and stopshortfile:
-                parsed_args.outfile.write(bytes('> (input file is truncated, no more differences reported)\r\n---\r\n', 'utf-8'))
-                total_errors += parsed_args.addr_to - curaddr
-                break
-
-        print('Total %d errors' % (total_errors))
+        total_errors = chip.verify(parsed_args.addr_from, parsed_args.addr_to, parsed_args.infile, parsed_args.outfile, {
+            'debug'         : debug,
+            'stopshortfile' : stopshortfile,
+            'writedryrun'   : writedryrun,
+        })
+        if (total_errors == -1):
+            raise argparse.ArgumentTypeError('ADDR_TO value has to be more than ADDR_FROM')
+        if (total_errors == -2):
+            raise argparse.ArgumentTypeError('ADDR_TO value has to be not more than chip size')
         return total_errors
 
 def main(argv=sys.argv[1:]):
