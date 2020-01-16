@@ -102,6 +102,14 @@ class spiflash(object):
         # sleep_ms(10)
         self.wait_until_not_busy()
 
+    def write_sub_page(self, addr1, addr2, addr3, page):
+        self.write_enable()
+        sleep_ms(WAITWREN)
+        xfer = [WRITE, addr1, addr2, addr3] + page[:(256-addr3)]
+        self.spi.xfer2(xfer)
+        # sleep_ms(10)
+        self.wait_until_not_busy()
+
     def write_page(self, addr1, addr2, page):
         self.write_enable()
         sleep_ms(WAITWREN)
@@ -162,7 +170,194 @@ class spiflash(object):
         self.specs = self.chips.get(key)
         return self.specs
 
-    # high-level file-based commands --------------------------------------------------------
+    # high-level range-based and file-based commands ----------------------------------------
+    def read_blk(self, addr_from, addr_to, options = {}):
+        specs = self.chip_specs()
+        pagesize = 256
+
+        debug         = options['debug']
+        #stopshortfile = options['stopshortfile']
+        #writedryrun   = options['writedryrun']
+        speed         = options['speed'] if options['speed'] != 0 else specs['speed']
+
+        # Cleanup / resolve parameters
+        if (addr_to <= addr_from):
+            return -1 # raise argparse.ArgumentTypeError('ADDR_TO value has to be more than ADDR_FROM')
+        if (addr_to > specs['size']):
+            return -2 # raise argparse.ArgumentTypeError('ADDR_TO value has to be not more than chip size')
+        firstpage = pagesize - (addr_from % pagesize)
+        
+        if (speed != 0):
+            self.speed_set(speed)
+            
+        # Debug:
+        if (debug):
+            print('spiflash.read_blk()')
+            print('addr_from  :', addr_from)
+            print('addr_to    :', addr_to)
+            print('firstpage  :', firstpage)
+            print('speed      :', self.speed_get())
+        
+        # Implementnation:
+        data = bytearray([])
+        curpage = firstpage
+        curaddr = addr_from
+        if (curpage > addr_to - curaddr):
+            curpage = addr_to - curaddr
+        while curaddr < addr_to:
+            addr1 = (curaddr >> 16) & 0x0000FF
+            addr2 = (curaddr >>  8) & 0x0000FF
+            addr3 = (curaddr >>  0) & 0x0000FF
+            p = self.read_page(addr1, addr2)[addr3:]
+            p = p[:curpage]
+            #if (debug):
+            #    print('read 0x%02X%02X%02X %d' % (addr1, addr2, addr3, curpage))
+            #    #print_page(p)
+            if (debug and curaddr / pagesize % 256 == 0):
+                print('read 0x%02X%02X%02X' % (addr1, addr2, addr3))
+            data.append(p)
+            curaddr += curpage
+            curpage = pagesize
+            if (curpage > addr_to - curaddr):
+                curpage = addr_to - curaddr
+        return data
+        
+    def write_blk(self, data, addr_from, addr_to, options = {}):
+        specs = self.chip_specs()
+        pagesize = 256
+        
+        debug         = options['debug']
+        stopshortfile = options['stopshortfile']
+        writedryrun   = options['writedryrun']
+        speed         = options['speed'] if options['speed'] != 0 else specs['speed']
+        
+        # Cleanup / resolve parameters
+        if (addr_to <= addr_from):
+            return -1 # raise argparse.ArgumentTypeError('ADDR_TO value has to be more than ADDR_FROM')
+        if (addr_to > specs['size']):
+            return -2 # raise argparse.ArgumentTypeError('ADDR_TO value has to be not more than chip size')
+
+        firstpage = pagesize - (addr_from % pagesize)
+        
+        if (speed != 0):
+            self.speed_set(speed)
+
+        # Debug:
+        if (debug):
+            print('spiflash.write_blk()')
+            print('addr_from  :', addr_from)
+            print('addr_to    :', addr_to)
+            print('firstpage  :', firstpage)
+            print('speed      :', self.speed_get())
+            print('writedryrun:', writedryrun)
+        
+        # Implementnation:
+        curpage = firstpage
+        curaddr = addr_from
+        shortfile = False
+        if (curpage > addr_to - curaddr):
+            curpage = addr_to - curaddr
+        while curaddr < addr_to:
+            addr1 = (curaddr >> 16) & 0x0000FF
+            addr2 = (curaddr >>  8) & 0x0000FF
+            addr3 = (curaddr >>  0) & 0x0000FF
+            pr   = data[:curpage]
+            data = data[curpage:]
+            if (len(pr) < curpage) and stopshortfile:
+                return -3 # data is shorter than given range
+            if not shortfile:
+                print('input data length is %d, shorter than requested range' % (curaddr + len(pr) - addr_from))
+            shortfile = True
+            if (writedryrun):
+                print('writedryrun: write_sub_page(0x%02X, 0x%02X, 0x%02X, data[%d]) skipped.' % (addr1, addr2, addr3, len(pr)))
+            else:
+                self.write_sub_page(addr1, addr2, addr3, pr)
+            if ( (not writedryrun) and debug and ((curaddr / pagesize % 256 == 0) or curpage != 256)):
+                print('write 0x%02X%02X%02X %d' % (addr1, addr2, addr3, curpage))
+                #print_page(pr)
+
+            curaddr += curpage
+            curpage = pagesize
+            if (curpage > addr_to - curaddr):
+                curpage = addr_to - curaddr
+        return 0
+            
+    def erase(self, addr_from, addr_to, options = {}):
+        specs = self.chip_specs()
+        #pagesize = 256
+        sectorsize = 256*16
+        
+        debug         = options['debug']
+        #stopshortfile = options['stopshortfile']
+        writedryrun   = options['writedryrun']
+        speed         = options['speed'] if options['speed'] != 0 else specs['speed']
+
+        # Cleanup / resolve parameters
+        if (addr_to <= addr_from):
+            return -1 # raise argparse.ArgumentTypeError('ADDR_TO value has to be more than ADDR_FROM')
+        if (addr_to > specs['size']):
+            return -2 # raise argparse.ArgumentTypeError('ADDR_TO value has to be not more than chip size')
+        firstsector = sectorsize - (addr_from % sectorsize)
+        
+        if (speed != 0):
+            self.speed_set(speed)
+            
+        # Debug:
+        if (debug):
+            print('spiflash.erase()')
+            print('addr_from  :', addr_from)
+            print('addr_to    :', addr_to)
+            print('firstsector:', firstsector)
+            print('speed      :', self.speed_get())
+            print('writedryrun:', writedryrun)
+        
+        # Implementnation:
+        if (addr_from == 0 and addr_to == specs['size']):
+            print('Erasing whole chip...')
+            if (writedryrun):
+                print('writedryrun: erase_all() skipped.')
+            else:
+                self.erase_all()
+            return 0
+            
+        cursector = firstsector
+        curaddr = addr_from
+        if (cursector > addr_to - curaddr):
+            cursector = addr_to - curaddr
+        while curaddr < addr_to:
+            addr1 = (curaddr >> 16) & 0x0000FF
+            addr2 = (curaddr >>  8) & 0x0000FF
+            addr3 = (curaddr >>  0) & 0x0000FF
+            pb = None
+            pe = None
+            sect_from = sectorsize * int(curaddr / sectorsize)
+            sect_to   = sectorsize + sect_from
+            if debug:
+                print('curaddr=%06X cursector=%06X sect_from=%06X sect_to=%06X' % (curaddr, cursector, sect_from, sect_to))
+            if (curaddr != sect_from):
+                pb = self.read_blk(sect_from, curaddr, options)
+            if (curaddr + cursector != sect_to):
+                pe = self.read_blk(curaddr + cursector, sect_to, options)
+            
+            self.erase_sector(addr1, addr2)
+            
+            if pb != None:
+                self.write_blk(pb, sect_from, curaddr, options)
+            if pe != None:
+                self.write_blk(pe, curaddr + cursector, sect_to, options)
+
+            #if (debug):
+            #    print('erase 0x%02X%02X%02X %d' % (addr1, addr2, addr3, cursector))
+            #    #print_page(p)
+            if (debug and curaddr / sectorsize % 16 == 0):
+                print('erase 0x%02X%02X%02X %d' % (addr1, addr2, addr3, cursector))
+
+            curaddr += cursector
+            cursector = sectorsize
+            if (cursector > addr_to - curaddr):
+                cursector = addr_to - curaddr
+        return 0
+
     def read(self, addr_from, addr_to, outfile, options = {}):
         specs = self.chip_specs()
         pagesize = 256
@@ -188,7 +383,7 @@ class spiflash(object):
             
         # Debug:
         if (debug):
-            #print('parsed_args:', parsed_args)
+            print('spiflash.read()')
             print('addr_from  :', addr_from)
             print('addr_to    :', addr_to)
             #print('infile     :', infile.name)
@@ -219,10 +414,8 @@ class spiflash(object):
             if (curpage > addr_to - curaddr):
                 curpage = addr_to - curaddr
         return 0
-
     
     def verify(self, addr_from, addr_to, infile, outfile, options = {}):
-        global debug
         specs = self.chip_specs()
         pagesize = 256
         
@@ -250,7 +443,7 @@ class spiflash(object):
 
         # Debug:
         if (debug):
-            #print('parsed_args:', parsed_args)
+            print('spiflash.verify()')
             print('addr_from  :', addr_from)
             print('addr_to    :', addr_to)
             print('infile     :', infile)
@@ -320,4 +513,68 @@ class spiflash(object):
         print('Total %d errors' % (total_errors))
         return total_errors
 
+    def write(self, addr_from, addr_to, infile, options = {}):
+        specs = self.chip_specs()
+        pagesize = 256
+        
+        debug         = options['debug']
+        stopshortfile = options['stopshortfile']
+        writedryrun   = options['writedryrun']
+        speed         = options['speed'] if options['speed'] != 0 else specs['speed']
+        
+        # Cleanup / resolve parameters
+        infileext  = os.path.splitext(infile.name )[1]
+
+        if (addr_to <= addr_from):
+            return -1 # raise argparse.ArgumentTypeError('ADDR_TO value has to be more than ADDR_FROM')
+        if (addr_to > specs['size']):
+            return -2 # raise argparse.ArgumentTypeError('ADDR_TO value has to be not more than chip size')
+        if (infileext == ''):
+            infileext = '.bin'
+        firstpage = pagesize - (addr_from % pagesize)
+        
+        if (speed != 0):
+            self.speed_set(speed)
+
+        # Debug:
+        if (debug):
+            print('spiflash.write()')
+            print('addr_from  :', addr_from)
+            print('addr_to    :', addr_to)
+            print('infile     :', infile)
+            print('infileext  :', infileext)
+            print('firstpage  :', firstpage)
+            print('speed      :', self.speed_get())
+            print('writedryrun:', writedryrun)
+        
+        # Implementnation:
+        curpage = firstpage
+        curaddr = addr_from
+        shortfile = False
+        if (curpage > addr_to - curaddr):
+            curpage = addr_to - curaddr
+        while curaddr < addr_to:
+            addr1 = (curaddr >> 16) & 0x0000FF
+            addr2 = (curaddr >>  8) & 0x0000FF
+            addr3 = (curaddr >>  0) & 0x0000FF
+            pr = bytearray(infile.read(curpage))
+            if (len(pr) < curpage):
+                if stopshortfile:
+                    return -3 # File data is shorter than given range
+                if not shortfile:
+                    print('input file length is %d, shorter than requested range' % (curaddr + len(pr) - addr_from))
+                shortfile = True
+            if (writedryrun):
+                print('writedryrun: write_sub_page(0x%02X, 0x%02X, 0x%02X, data[%d]) skipped.' % (addr1, addr2, addr3, len(pr)))
+            else:
+                self.write_sub_page(addr1, addr2, addr3, pr)
+            if ( (not writedryrun) and debug and ((curaddr / pagesize % 256 == 0) or curpage != 256)):
+                print('write 0x%02X%02X%02X %d' % (addr1, addr2, addr3, curpage))
+                #print_page(pr)
+
+            curaddr += curpage
+            curpage = pagesize
+            if (curpage > addr_to - curaddr):
+                curpage = addr_to - curaddr
+        return 0
     

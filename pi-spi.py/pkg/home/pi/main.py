@@ -85,7 +85,6 @@ init_chip()
 
 # Using cliff?
 
-import os
 import sys
 
 from cliff.app import App
@@ -109,6 +108,7 @@ class DemoApp(App):
             'test'   : Test   ,
             'read'   : Read   ,
             'verify' : Verify ,
+            'write'  : Write  ,
         }
         for k, v in iter(commands.items()):
             self.command_manager.add_command(k, v)
@@ -212,8 +212,8 @@ class SpiCommand(Command):
 
     def preparse_args(self, parsed_args):
         global chip, debug
-        #if (debug):
-        #    print('prepare_args(', parsed_args,')')
+        if (debug):
+            print('prepare_args(', parsed_args,')')
         specs = chip.chip_specs()
         pagesize = 256
         
@@ -234,7 +234,6 @@ class Read(SpiCommand):
 
     def get_parser(self, prog_name):
         parser = super().get_parser(prog_name)
-        #parser.add_argument('-i', '--infile' , dest='infile'   , nargs='?', type=argparse.FileType('rb'), default=sys.stdin , help='input (data) file' )
         parser.add_argument('-o', '--outfile', dest='outfile'  , nargs='?', type=argparse.FileType('wb'), default=sys.stdout, help='output (data) file' )
         return parser
 
@@ -278,6 +277,55 @@ class Verify(SpiCommand):
             raise argparse.ArgumentTypeError('ADDR_TO value has to be more than ADDR_FROM')
         if (total_errors == -2):
             raise argparse.ArgumentTypeError('ADDR_TO value has to be not more than chip size')
+        return total_errors
+
+class Write(SpiCommand):
+    'write data to device'
+
+    def get_parser(self, prog_name):
+        parser = super().get_parser(prog_name)
+        parser.add_argument('-i', '--infile' , dest='infile'   , nargs='?', type=argparse.FileType('rb'), default=sys.stdin , help='input (data) file' )
+        parser.add_argument('-o', '--outfile', dest='outfile'  , nargs='?', type=argparse.FileType('wb'), default=sys.stdout, help='output (diff) file' )
+        parser.add_argument('--erase'        , dest='erase'    , action='store_true'                                        , help='erase data range in device before write' )
+        parser.add_argument('--verify'       , dest='verify'   , action='store_true'                                        , help='verify device data after write' )
+        return parser
+
+    def take_action(self, parsed_args):
+        parsed_args = super().preparse_args(parsed_args)
+        global chip, debug
+        
+        # Implementnation:
+        total_errors = 0
+        if (parsed_args.erase):
+            total_errors = chip.erase(parsed_args.addr_from, parsed_args.addr_to, {
+                'debug'         : debug,
+                'stopshortfile' : stopshortfile,
+                'writedryrun'   : writedryrun,
+                'speed'         : parsed_args.speed,
+            })
+            if (total_errors != 0):
+                return total_errors
+
+        total_errors = chip.write(parsed_args.addr_from, parsed_args.addr_to, parsed_args.infile, {
+            'debug'         : debug,
+            'stopshortfile' : stopshortfile,
+            'writedryrun'   : writedryrun,
+            'speed'         : parsed_args.speed,
+        })
+        if (total_errors != 0):
+            return total_errors
+
+        if (parsed_args.verify):
+            total_errors = chip.verify(parsed_args.addr_from, parsed_args.addr_to, parsed_args.infile, parsed_args.outfile, {
+                'debug'         : debug,
+                'stopshortfile' : stopshortfile,
+                'writedryrun'   : writedryrun,
+                'speed'         : parsed_args.speed,
+            })
+            if (total_errors == -1):
+                raise argparse.ArgumentTypeError('ADDR_TO value has to be more than ADDR_FROM')
+            if (total_errors == -2):
+                raise argparse.ArgumentTypeError('ADDR_TO value has to be not more than chip size')
         return total_errors
 
 def main(argv=sys.argv[1:]):
