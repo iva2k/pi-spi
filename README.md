@@ -283,6 +283,7 @@ Reset 99h
 * input pipes will break file.seek(0), see possible solution <https://stackoverflow.com/questions/14283025/python-3-reading-bytes-from-stdin-pipe-with-readahead>
 * add verbosity param, organize debug prints under verbosity
 * add logfile param (default stderr)
+* use file.isatty() for enabling terminal logging vs file logging
 * infile and outfile text vs. binary mode (stdin/stdout are text / won't work, -i/-o are binary)
 * add support for various data file formats (.hex, .srec, etc.)
 * add params for explicit file format choice (e.g. for pipes)
