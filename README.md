@@ -71,6 +71,11 @@ pip install cliff
 
 ```
 
+This project settled on cliff. Other CLI tools of interest:
+
+* Fire: <https://github.com/google/python-fire/blob/master/docs/guide.md>
+* Click: <https://click.palletsprojects.com/en/7.x/>
+
 ### SAMBA File Sharing
 
 ```bash
