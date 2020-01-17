@@ -111,8 +111,8 @@ class spiflash(object):
         self.wait_until_not_busy()
 
     def write_sub_page(self, addr1, addr2, addr3, page):
-        print('DEBUG spiflash.write_sub_page(%02X %02X %02X data[%d])' % (addr1, addr2, addr3, len(page)))
-        return
+        # print('DEBUG spiflash.write_sub_page(%02X %02X %02X data[%d])' % (addr1, addr2, addr3, len(page)))
+        # return
 
         self.write_enable()
         sleep_ms(WAITWREN)
@@ -122,8 +122,8 @@ class spiflash(object):
         self.wait_until_not_busy()
 
     def write_page(self, addr1, addr2, page):
-        print('DEBUG spiflash.write_page(%02X %02X data[%d])' % (addr1, addr2, len(page)))
-        return
+        # print('DEBUG spiflash.write_page(%02X %02X data[%d])' % (addr1, addr2, len(page)))
+        # return
 
         self.write_enable()
         sleep_ms(WAITWREN)
@@ -138,8 +138,8 @@ class spiflash(object):
 
     # erases ----------------------------------------------------------------------------------
     def erase_sector(self, addr1, addr2):
-        print('DEBUG spiflash.erase_sector(%02X %02X)' % (addr1, addr2))
-        return
+        # print('DEBUG spiflash.erase_sector(%02X %02X)' % (addr1, addr2))
+        # return
 
         self.write_enable()
         sleep_ms(WAITWREN)
@@ -149,8 +149,8 @@ class spiflash(object):
         self.wait_until_not_busy()
 
     def erase_all(self):
-        print('DEBUG spiflash.erase_all()')
-        return
+        # print('DEBUG spiflash.erase_all()')
+        # return
 
         self.write_enable()
         sleep_ms(WAITWREN)
