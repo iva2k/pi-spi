@@ -260,14 +260,31 @@ class Verify(SpiCommand):
     def get_parser(self, prog_name):
         parser = super().get_parser(prog_name)
         parser.add_argument('-i', '--infile' , dest='infile'   , nargs='?', type=argparse.FileType('rb'), default=sys.stdin , help='input (data) file' )
+        parser.add_argument('-s', '--skip'   , dest='skip'     , nargs='?'                              , default=0         , help='skip first N bytes in the input data' )
         parser.add_argument('-o', '--outfile', dest='outfile'  , nargs='?', type=argparse.FileType('wb'), default=sys.stdout, help='output (diff) file' )
         return parser
 
     def take_action(self, parsed_args):
         parsed_args = super().preparse_args(parsed_args)
         global chip, debug
+        specs = chip.chip_specs()
+        pagesize = 256
         
+        # Cleanup / resolve parameters
+        subs = {
+            'start'  : 0,
+            'end'    : specs['size'],
+            'page'   : pagesize,
+            'offset' : parsed_args.addr_from,
+        }
+        parsed_args.skip = Calc.evaluate(Calc.subst_values(subs, str(parsed_args.skip)))
+        #if (debug):
+        #    print('parsed_args=', parsed_args)
+
         # Implementnation:
+        if (parsed_args.skip > 0):
+            discard = parsed_args.infile.read(parsed_args.skip)
+        
         total_errors = chip.verify(parsed_args.addr_from, parsed_args.addr_to, parsed_args.infile, parsed_args.outfile, {
             'debug'         : debug,
             'stopshortfile' : stopshortfile,
@@ -306,6 +323,7 @@ class Write(SpiCommand):
     def get_parser(self, prog_name):
         parser = super().get_parser(prog_name)
         parser.add_argument('-i', '--infile' , dest='infile'   , nargs='?', type=argparse.FileType('rb'), default=sys.stdin , help='input (data) file' )
+        parser.add_argument('-s', '--skip'   , dest='skip'     , nargs='?'                              , default=0         , help='skip first N bytes in the input data' )
         parser.add_argument('-o', '--outfile', dest='outfile'  , nargs='?', type=argparse.FileType('wb'), default=sys.stdout, help='output (diff) file' )
         parser.add_argument('--erase'        , dest='erase'    , action='store_true'                                        , help='erase data range in device before write' )
         parser.add_argument('--verify'       , dest='verify'   , action='store_true'                                        , help='verify device data after write' )
@@ -314,7 +332,20 @@ class Write(SpiCommand):
     def take_action(self, parsed_args):
         parsed_args = super().preparse_args(parsed_args)
         global chip, debug
+        specs = chip.chip_specs()
+        pagesize = 256
         
+        # Cleanup / resolve parameters
+        subs = {
+            'start'  : 0,
+            'end'    : specs['size'],
+            'page'   : pagesize,
+            'offset' : parsed_args.addr_from,
+        }
+        parsed_args.skip = Calc.evaluate(Calc.subst_values(subs, str(parsed_args.skip)))
+        #if (debug):
+        #    print('parsed_args=', parsed_args)
+
         # Implementnation:
         total_errors = 0
         if (parsed_args.erase):
@@ -327,6 +358,9 @@ class Write(SpiCommand):
             if (total_errors != 0):
                 return total_errors
 
+        if (parsed_args.skip > 0):
+            discard = parsed_args.infile.read(parsed_args.skip)
+
         total_errors = chip.write(parsed_args.addr_from, parsed_args.addr_to, parsed_args.infile, {
             'debug'         : debug,
             'stopshortfile' : stopshortfile,
@@ -338,6 +372,9 @@ class Write(SpiCommand):
 
         if (parsed_args.verify):
             parsed_args.infile.seek(0)
+            if (parsed_args.skip > 0):
+                discard = parsed_args.infile.read(parsed_args.skip)
+
             total_errors = chip.verify(parsed_args.addr_from, parsed_args.addr_to, parsed_args.infile, parsed_args.outfile, {
                 'debug'         : debug,
                 'stopshortfile' : stopshortfile,
