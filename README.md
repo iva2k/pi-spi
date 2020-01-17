@@ -280,7 +280,7 @@ Reset 99h
 
 ## TODOs
 
-* input pipes will break file.seek(0)
+* input pipes will break file.seek(0), see possible solution <https://stackoverflow.com/questions/14283025/python-3-reading-bytes-from-stdin-pipe-with-readahead>
 * add verbosity param, organize debug prints under verbosity
 * add logfile param (default stderr)
 * infile and outfile text vs. binary mode (stdin/stdout are text / won't work, -i/-o are binary)
