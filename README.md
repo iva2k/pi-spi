@@ -277,3 +277,18 @@ Read SFDP Register 5Ah, 00h, 00h, A7–A0, dummy, (D7-0)
 Enable Reset 66h
 
 Reset 99h
+
+## TODOs
+
+* input pipes will break file.seek(0)
+* add verbosity param, organize debug prints under verbosity
+* add logfile param (default stderr)
+* infile and outfile text vs. binary mode (stdin/stdout are text / won't work, -i/-o are binary)
+* add support for various data file formats (.hex, .srec, etc.)
+* add params for explicit file format choice (e.g. for pipes)
+* move fixed delays into chip specs
+* add specs for mainstream chip IDs
+* cleanup docs
+* cleanup repo files
+* create example/default scripts for making copies
+* invent UI for headless use (buttons/LEDs)
