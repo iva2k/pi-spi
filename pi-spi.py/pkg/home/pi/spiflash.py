@@ -19,6 +19,12 @@ WAITSTEP = 5
 WAITWREN = 5
 WAITWRDIS = 5
 
+# Printing
+#cll = '\x1b[2K\r'
+cll = '\r\x1b[2K'
+nolf = '\r'
+crlf='\r\n'
+
 def Mbit(n):
     return n * int(1024*1024/8)
 
@@ -103,6 +109,9 @@ class spiflash(object):
         self.wait_until_not_busy()
 
     def write_sub_page(self, addr1, addr2, addr3, page):
+        print('DEBUG spiflash.write_sub_page(%02X %02X %02X data[%d])' % (addr1, addr2, addr3, len(page)))
+        return
+
         self.write_enable()
         sleep_ms(WAITWREN)
         xfer = [WRITE, addr1, addr2, addr3] + page[:(256-addr3)]
@@ -111,6 +120,9 @@ class spiflash(object):
         self.wait_until_not_busy()
 
     def write_page(self, addr1, addr2, page):
+        print('DEBUG spiflash.write_page(%02X %02X data[%d])' % (addr1, addr2, len(page)))
+        return
+
         self.write_enable()
         sleep_ms(WAITWREN)
         xfer = [WRITE, addr1, addr2, 0] + page[:256]
@@ -124,6 +136,9 @@ class spiflash(object):
 
     # erases ----------------------------------------------------------------------------------
     def erase_sector(self, addr1, addr2):
+        print('DEBUG spiflash.erase_sector(%02X %02X)' % (addr1, addr2))
+        return
+
         self.write_enable()
         sleep_ms(WAITWREN)
         xfer = [SECTOR_ERASE, addr1, addr2, 0]
@@ -132,6 +147,9 @@ class spiflash(object):
         self.wait_until_not_busy()
 
     def erase_all(self):
+        print('DEBUG spiflash.erase_all()')
+        return
+
         self.write_enable()
         sleep_ms(WAITWREN)
         self.spi.xfer2([CHIP_ERASE])
@@ -146,7 +164,7 @@ class spiflash(object):
         statreg = self.spi.xfer2([RDSR,RDSR])[1]
         while (statreg & 0x1) == 0x1:
             if (max_wait < 0):
-                #print("")
+                #print('')
                 raise UserWarning('Timeout waiting %dms for device ready, statreg=%02X' % (MAXWAIT, statreg) )
             sleep_ms(WAITSTEP)
             #print(".", end=" ")
@@ -208,18 +226,24 @@ class spiflash(object):
             addr1 = (curaddr >> 16) & 0x0000FF
             addr2 = (curaddr >>  8) & 0x0000FF
             addr3 = (curaddr >>  0) & 0x0000FF
+            print('DEBUG before read_page()')
             p = self.read_page(addr1, addr2)[addr3:]
             p = p[:curpage]
+            print('DEBUG after read_page()')
             #if (debug):
             #    print('read 0x%02X%02X%02X %d' % (addr1, addr2, addr3, curpage))
             #    #print_page(p)
             if (debug and curaddr / pagesize % 256 == 0):
-                print('read 0x%02X%02X%02X' % (addr1, addr2, addr3))
-            data.append(p)
+                print(cll, 'read 0x%02X%02X%02X' % (addr1, addr2, addr3), end=nolf)
+            print('DEBUG before data.extend() data[%d]' % (len(data)))
+            data.extend(p)
+            print('DEBUG after data.extend() data[%d]' % (len(data)))
             curaddr += curpage
             curpage = pagesize
             if (curpage > addr_to - curaddr):
                 curpage = addr_to - curaddr
+        if debug:
+            print(crlf, 'spiflash.read_blk() done.')
         return data
         
     def write_blk(self, data, addr_from, addr_to, options = {}):
@@ -263,23 +287,26 @@ class spiflash(object):
             addr3 = (curaddr >>  0) & 0x0000FF
             pr   = data[:curpage]
             data = data[curpage:]
-            if (len(pr) < curpage) and stopshortfile:
-                return -3 # data is shorter than given range
-            if not shortfile:
-                print('input data length is %d, shorter than requested range' % (curaddr + len(pr) - addr_from))
-            shortfile = True
+            if (len(pr) < curpage):
+                if stopshortfile:
+                    return -3 # data is shorter than given range
+                if not shortfile:
+                    print('input data length is %d, shorter than requested range' % (curaddr + len(pr) - addr_from))
+                shortfile = True
             if (writedryrun):
                 print('writedryrun: write_sub_page(0x%02X, 0x%02X, 0x%02X, data[%d]) skipped.' % (addr1, addr2, addr3, len(pr)))
             else:
                 self.write_sub_page(addr1, addr2, addr3, pr)
             if ( (not writedryrun) and debug and ((curaddr / pagesize % 256 == 0) or curpage != 256)):
-                print('write 0x%02X%02X%02X %d' % (addr1, addr2, addr3, curpage))
+                print(cll, 'write 0x%02X%02X%02X %d' % (addr1, addr2, addr3, curpage), end=nolf)
                 #print_page(pr)
 
             curaddr += curpage
             curpage = pagesize
             if (curpage > addr_to - curaddr):
                 curpage = addr_to - curaddr
+        if debug:
+            print(cll, 'spiflash.write_blk() done.')
         return 0
             
     def erase(self, addr_from, addr_to, options = {}):
@@ -325,9 +352,6 @@ class spiflash(object):
         if (cursector > addr_to - curaddr):
             cursector = addr_to - curaddr
         while curaddr < addr_to:
-            addr1 = (curaddr >> 16) & 0x0000FF
-            addr2 = (curaddr >>  8) & 0x0000FF
-            addr3 = (curaddr >>  0) & 0x0000FF
             pb = None
             pe = None
             sect_from = sectorsize * int(curaddr / sectorsize)
@@ -339,7 +363,13 @@ class spiflash(object):
             if (curaddr + cursector != sect_to):
                 pe = self.read_blk(curaddr + cursector, sect_to, options)
             
-            self.erase_sector(addr1, addr2)
+            addr1 = (sect_from >> 16) & 0x0000FF
+            addr2 = (sect_from >>  8) & 0x0000FF
+            addr3 = (sect_from >>  0) & 0x0000FF
+            if (writedryrun):
+                print('writedryrun: erase_sector(0x%02X, 0x%02X) skipped.' % (addr1, addr2))
+            else:
+                self.erase_sector(addr1, addr2)
             
             if pb != None:
                 self.write_blk(pb, sect_from, curaddr, options)
@@ -350,12 +380,14 @@ class spiflash(object):
             #    print('erase 0x%02X%02X%02X %d' % (addr1, addr2, addr3, cursector))
             #    #print_page(p)
             if (debug and curaddr / sectorsize % 16 == 0):
-                print('erase 0x%02X%02X%02X %d' % (addr1, addr2, addr3, cursector))
+                print(cll, 'erase 0x%02X%02X%02X %d' % (addr1, addr2, addr3, cursector), end=nolf)
 
             curaddr += cursector
             cursector = sectorsize
             if (cursector > addr_to - curaddr):
                 cursector = addr_to - curaddr
+        if debug:
+            print(cll, 'spiflash.erase() done.')
         return 0
 
     def read(self, addr_from, addr_to, outfile, options = {}):
@@ -407,12 +439,14 @@ class spiflash(object):
             #    print('read 0x%02X%02X%02X %d' % (addr1, addr2, addr3, curpage))
             #    #print_page(p)
             if (debug and curaddr / pagesize % 256 == 0):
-                print('read 0x%02X%02X%02X' % (addr1, addr2, addr3))
+                print(cll, 'read 0x%02X%02X%02X' % (addr1, addr2, addr3), end=nolf)
             outfile.write(bytes(p))
             curaddr += curpage
             curpage = pagesize
             if (curpage > addr_to - curaddr):
                 curpage = addr_to - curaddr
+        if debug:
+            print(cll, 'spiflash.read() done.')
         return 0
     
     def verify(self, addr_from, addr_to, infile, outfile, options = {}):
@@ -471,7 +505,7 @@ class spiflash(object):
             #    print('read 0x%02X%02X%02X %d' % (addr1, addr2, addr3, curpage))
             #    #print_page(p)
             if (debug and curaddr / pagesize % 256 == 0):
-                print('read 0x%02X%02X%02X' % (addr1, addr2, addr3))
+                print(cll, 'read 0x%02X%02X%02X' % (addr1, addr2, addr3), end=nolf)
             pr = bytearray(infile.read(curpage))
             #if (debug and curaddr == 0x0100 and len(pr) >= 8):
             #    pr[2] = 0x55 ^ pr[2]
@@ -510,6 +544,8 @@ class spiflash(object):
                 total_errors += addr_to - curaddr
                 break
 
+        if debug:
+            print(cll, 'spiflash.verify() done.')
         print('Total %d errors' % (total_errors))
         return total_errors
 
@@ -569,12 +605,14 @@ class spiflash(object):
             else:
                 self.write_sub_page(addr1, addr2, addr3, pr)
             if ( (not writedryrun) and debug and ((curaddr / pagesize % 256 == 0) or curpage != 256)):
-                print('write 0x%02X%02X%02X %d' % (addr1, addr2, addr3, curpage))
+                print(cll, 'write 0x%02X%02X%02X %d' % (addr1, addr2, addr3, curpage), end=nolf)
                 #print_page(pr)
 
             curaddr += curpage
             curpage = pagesize
             if (curpage > addr_to - curaddr):
                 curpage = addr_to - curaddr
+        if debug:
+            print(cll, 'spiflash.write() done.')
         return 0
     

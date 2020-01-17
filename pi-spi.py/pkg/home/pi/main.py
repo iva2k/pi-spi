@@ -108,6 +108,7 @@ class DemoApp(App):
             'test'   : Test   ,
             'read'   : Read   ,
             'verify' : Verify ,
+            'erase'  : Erase  ,
             'write'  : Write  ,
         }
         for k, v in iter(commands.items()):
@@ -279,6 +280,26 @@ class Verify(SpiCommand):
             raise argparse.ArgumentTypeError('ADDR_TO value has to be not more than chip size')
         return total_errors
 
+class Erase(SpiCommand):
+    'write data to device'
+
+    def get_parser(self, prog_name):
+        parser = super().get_parser(prog_name)
+        return parser
+
+    def take_action(self, parsed_args):
+        parsed_args = super().preparse_args(parsed_args)
+        global chip, debug
+        
+        # Implementnation:
+        total_errors = chip.erase(parsed_args.addr_from, parsed_args.addr_to, {
+            'debug'         : debug,
+            'stopshortfile' : stopshortfile,
+            'writedryrun'   : writedryrun,
+            'speed'         : parsed_args.speed,
+        })
+        return total_errors
+
 class Write(SpiCommand):
     'write data to device'
 
@@ -316,6 +337,7 @@ class Write(SpiCommand):
             return total_errors
 
         if (parsed_args.verify):
+            parsed_args.infile.seek(0)
             total_errors = chip.verify(parsed_args.addr_from, parsed_args.addr_to, parsed_args.infile, parsed_args.outfile, {
                 'debug'         : debug,
                 'stopshortfile' : stopshortfile,
