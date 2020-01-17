@@ -291,4 +291,5 @@ Reset 99h
 * cleanup docs
 * cleanup repo files
 * create example/default scripts for making copies
+* create upload.sh script
 * invent UI for headless use (buttons/LEDs)
