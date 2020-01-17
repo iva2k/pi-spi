@@ -24,6 +24,8 @@ WAITWRDIS = 5
 cll = '\r\x1b[2K'
 nolf = '\r'
 crlf='\r\n'
+# TODO: better terminal logging, see curses, https://stackoverflow.com/questions/5419389/how-to-overwrite-the-previous-print-to-stdout-in-python
+# or http://code.activestate.com/recipes/475116/
 
 def Mbit(n):
     return n * int(1024*1024/8)

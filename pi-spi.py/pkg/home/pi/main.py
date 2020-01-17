@@ -90,7 +90,7 @@ import sys
 from cliff.app import App
 from cliff.command import Command
 from cliff.commandmanager import CommandManager
-from cliff.show import ShowOne
+# from cliff.show import ShowOne
 
 class DemoApp(App):
 
@@ -113,6 +113,7 @@ class DemoApp(App):
         }
         for k, v in iter(commands.items()):
             self.command_manager.add_command(k, v)
+        argv = argv # unused var
 
     def prepare_to_run_command(self, cmd):
         self.LOG.debug('prepare_to_run_command %s', cmd.__class__.__name__)
@@ -121,6 +122,7 @@ class DemoApp(App):
         self.LOG.debug('clean_up %s', cmd.__class__.__name__)
         if err:
             self.LOG.debug('got an error: %s', err)
+        result = result # unused var
 
 #TESTS -------------------------------------------------------------------
 class Test(Command):
@@ -169,6 +171,7 @@ class Test(Command):
         #print_status(chip.read_status())
         #write_status(0,0)
         #print_status(chip.read_status())
+        parsed_args = parsed_args # unused var
 
 # Expression Calculator (from https://stackoverflow.com/a/33030616)
 import ast
@@ -282,6 +285,7 @@ class Verify(SpiCommand):
         #    print('parsed_args=', parsed_args)
 
         # Implementnation:
+        discard = None
         if (parsed_args.skip > 0):
             discard = parsed_args.infile.read(parsed_args.skip)
         
@@ -295,6 +299,7 @@ class Verify(SpiCommand):
             raise argparse.ArgumentTypeError('ADDR_TO value has to be more than ADDR_FROM')
         if (total_errors == -2):
             raise argparse.ArgumentTypeError('ADDR_TO value has to be not more than chip size')
+        discard = discard # unused var
         return total_errors
 
 class Erase(SpiCommand):
@@ -347,6 +352,7 @@ class Write(SpiCommand):
         #    print('parsed_args=', parsed_args)
 
         # Implementnation:
+        discard = None
         total_errors = 0
         if (parsed_args.erase):
             total_errors = chip.erase(parsed_args.addr_from, parsed_args.addr_to, {
@@ -385,6 +391,7 @@ class Write(SpiCommand):
                 raise argparse.ArgumentTypeError('ADDR_TO value has to be more than ADDR_FROM')
             if (total_errors == -2):
                 raise argparse.ArgumentTypeError('ADDR_TO value has to be not more than chip size')
+        discard = discard # unused var
         return total_errors
 
 def main(argv=sys.argv[1:]):
