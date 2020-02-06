@@ -56,6 +56,9 @@ class spiflash(object):
 # W25Q64FV      EFH 40H 17H 64         4          32,64      2.7-3.6 33/50/80/104  35:18:1
         0xEF4017: { 'size': Mbit(64), 'speed': MHz(33)},
 # W25Q64FV(QPI) EFH 60H 17H 64         4          32,64      2.7-3.6 33/50/80/104  35:18:1
+
+# MX25L6406E
+        0xC22017: { 'size': Mbit(64), 'speed': MHz(30)},
     }
     
     def __init__(self, bus, cs, mode = 0, options = {
