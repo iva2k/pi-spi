@@ -4,7 +4,7 @@ from __future__ import print_function
 
 debug = True
 stopshortfile = False
-writedryrun = True
+writedryrun = False
 
 import argparse
 

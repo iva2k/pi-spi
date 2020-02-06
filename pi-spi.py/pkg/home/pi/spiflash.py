@@ -119,7 +119,7 @@ class spiflash(object):
 
         self.write_enable()
         sleep_ms(WAITWREN)
-        xfer = [WRITE, addr1, addr2, addr3] + page[:(256-addr3)]
+        xfer = [WRITE, addr1, addr2, addr3] + list(page[:(256-addr3)])
         self.spi.xfer2(xfer)
         # sleep_ms(10)
         self.wait_until_not_busy()
