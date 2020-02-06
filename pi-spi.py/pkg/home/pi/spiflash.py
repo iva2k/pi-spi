@@ -54,12 +54,17 @@ class spiflash(object):
 # SST26VF016    BFH 26H 01H 16         4          8,32,64    2.7-3.6  80        35:18:1
 # SST26VF032    BFH 26H 02H 32         4          8,32,64    2.7-3.6  80        35:18:1
 # W25Q64FV      EFH 40H 17H 64         4          32,64      2.7-3.6 33/50/80/104  35:18:1
-        0xEF4017: { 'size': Mbit(64), 'speed': MHz(33)},
+        0xEF4017: { 'size': Mbit(64), 'speed': MHz(33), 'tpp': 3, 'tse': 400, 'tbe1': 1600, 'tbe2': 2000, 'tce': 100000},
 # W25Q64FV(QPI) EFH 60H 17H 64         4          32,64      2.7-3.6 33/50/80/104  35:18:1
 
 # MX25L6406E
-        0xC22017: { 'size': Mbit(64), 'speed': MHz(30)},
+        0xC22017: { 'size': Mbit(64), 'speed': MHz(30), 'tpp': 5, 'tse': 300, 'tbe1': 2000, 'tbe2': 2000, 'tce':  80000},
     }
+    # tpp         | (ms) 256B Page Program Time
+    # tse         | (ms)  4kB Sector Erase Time
+    # tbe1        | (ms) 32kB Block  Erase Time
+    # tbe2        | (ms) 64kB Block  Erase Time
+    # tce         | (ms)  All Chip   Erase Time
     
     def __init__(self, bus, cs, mode = 0, options = {
         'max_speed_hz': 1000000,
@@ -151,7 +156,7 @@ class spiflash(object):
         # sleep_ms(10)
         self.wait_until_not_busy()
 
-    def erase_all(self):
+    def erase_all(self, wait=0):
         # print('DEBUG spiflash.erase_all()')
         # return
 
@@ -159,13 +164,13 @@ class spiflash(object):
         sleep_ms(WAITWREN)
         self.spi.xfer2([CHIP_ERASE])
         # sleep_ms(10)
-        self.wait_until_not_busy()
+        self.wait_until_not_busy(wait)
 
     # misc ----------------------------------------------------------------------------------
 
     # Wait for the chip. Timeout after MAXWAIT
-    def wait_until_not_busy(self):
-        max_wait = MAXWAIT
+    def wait_until_not_busy(self, wait=0):
+        max_wait = MAXWAIT + wait
         statreg = self.spi.xfer2([RDSR,RDSR])[1]
         while (statreg & 0x1) == 0x1:
             if (max_wait < 0):
@@ -349,7 +354,7 @@ class spiflash(object):
             if (writedryrun):
                 print('writedryrun: erase_all() skipped.')
             else:
-                self.erase_all()
+                self.erase_all(specs['tce'])
             return 0
             
         cursector = firstsector
