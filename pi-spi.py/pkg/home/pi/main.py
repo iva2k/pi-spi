@@ -31,7 +31,7 @@ except:
 
 #helpers -------------------------------------------------------------------------------
 def print_status(status):
-    print('status %s %s' % (bin(status[1])[2:].zfill(8), bin(status[0])[2:].zfill(8)))
+    print('status %s %s (0x%02X 0x%02X)' % (bin(status[1])[2:].zfill(8), bin(status[0])[2:].zfill(8), status[1], status[0]))
 
 def print_page(page):
     s = ''
@@ -144,9 +144,10 @@ class Test(Command):
         specs = chip.chip_specs()
         print('Chip specs:', specs if specs else ' unknown chip')
 
-        #print_status(read_status())
-        #write_disable()
-        #print_status(read_status())
+        print('reading Chip Status Registers...')
+        print_status(chip.read_status())
+        chip.write_disable()
+        print_status(chip.read_status())
 
         print('checking busy...')
         chip.wait_until_not_busy()

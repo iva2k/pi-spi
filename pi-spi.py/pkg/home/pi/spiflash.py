@@ -2,16 +2,16 @@
 from __future__ import print_function
 import os
 
-WREN = 0x06
-WRDI = 0x04
-RDSR = 0x05
+WREN  = 0x06
+WRDI  = 0x04
+RDSR  = 0x05
 RDSR2 = 0x35
-WRSR = 1
-READ = 0x03
+WRSR  = 0x01
+READ  = 0x03
 WRITE = 0x02
 SECTOR_ERASE = 0x20
-CHIP_ERASE = 0xC7
-JEDEC_ID = 0x9F
+CHIP_ERASE   = 0xC7
+JEDEC_ID     = 0x9F
 
 # Time in milliseconds:
 MAXWAIT = 5000
@@ -54,11 +54,11 @@ class spiflash(object):
 # SST26VF016    BFH 26H 01H 16         4          8,32,64    2.7-3.6  80        35:18:1
 # SST26VF032    BFH 26H 02H 32         4          8,32,64    2.7-3.6  80        35:18:1
 # W25Q64FV      EFH 40H 17H 64         4          32,64      2.7-3.6 33/50/80/104  35:18:1
-        0xEF4017: { 'size': Mbit(64), 'speed': MHz(33), 'tpp': 3, 'tse': 400, 'tbe1': 1600, 'tbe2': 2000, 'tce': 100000},
+        0xEF4017: { 'chip': 'W25Q64FV'  , 'size': Mbit(64), 'speed': MHz(33), 'tpp': 3, 'tse': 400, 'tbe1': 1600, 'tbe2': 2000, 'tce': 100000},
 # W25Q64FV(QPI) EFH 60H 17H 64         4          32,64      2.7-3.6 33/50/80/104  35:18:1
 
 # MX25L6406E
-        0xC22017: { 'size': Mbit(64), 'speed': MHz(30), 'tpp': 5, 'tse': 300, 'tbe1': 2000, 'tbe2': 2000, 'tce':  80000},
+        0xC22017: { 'chip': 'MX25L6406E', 'size': Mbit(64), 'speed': MHz(30), 'tpp': 5, 'tse': 300, 'tbe1': 2000, 'tbe2': 2000, 'tce':  80000},
     }
     # tpp         | (ms) 256B Page Program Time
     # tse         | (ms)  4kB Sector Erase Time
@@ -94,8 +94,8 @@ class spiflash(object):
 
     # reads ----------------------------------------------------------------------------------
     def read_status(self):
-        statreg = self.spi.xfer2([RDSR,RDSR])[1]
-        statreg2 = self.spi.xfer2([RDSR2,RDSR2])[1]
+        statreg = self.spi.xfer2([RDSR,0])[1]
+        statreg2 = self.spi.xfer2([RDSR2,0])[1]
         return statreg, statreg2
 
     def read_page(self, addr1, addr2):
@@ -171,7 +171,7 @@ class spiflash(object):
     # Wait for the chip. Timeout after MAXWAIT
     def wait_until_not_busy(self, wait=0):
         max_wait = MAXWAIT + wait
-        statreg = self.spi.xfer2([RDSR,RDSR])[1]
+        statreg = self.spi.xfer2([RDSR,0])[1]
         while (statreg & 0x1) == 0x1:
             if (max_wait < 0):
                 #print('')
@@ -179,7 +179,7 @@ class spiflash(object):
             sleep_ms(WAITSTEP)
             #print(".", end=" ")
             #print "%r \tRead %X" % (datetime.now(), statreg)
-            statreg = self.spi.xfer2([RDSR,RDSR])[1]
+            statreg = self.spi.xfer2([RDSR,0])[1]
             max_wait -= WAITSTEP
 
     def read_jedec_id(self):
@@ -349,6 +349,11 @@ class spiflash(object):
             print('writedryrun:', writedryrun)
         
         # Implementnation:
+        print('Resetting chip protection...')
+        self.write_status(0x00, 0x00)
+        sr = self.read_status()
+        print('  Result SR1: 0x%02X SR0: 0x%02X' % (sr[1], sr[0]) )
+        
         if (addr_from == 0 and addr_to == specs['size']):
             print('Erasing whole chip...')
             if (writedryrun):
