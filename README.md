@@ -12,19 +12,24 @@ TODO: TBD if Quad-SPI is possible (faster I/O)
 
 Connect SPI device (either probe cable or chip socket) as follows:
 
-| Chip Pin | Chip Signal  | Pi Pin | Pi Signal      | Notes       |
-|:--------:|:------------:|:------:|----------------|-------------|
-|  8       | VCC          | 17     | +3.3V          | or GPIO(*)  |
-|  5       | DI (IO0)     | 19     | MOSI / GPIO 10 |             |
-|  2       | DO (IO1)     | 21     | MISO / GPIO 9  |             |
-|  6       | CLK          | 23     | SCLK / GPIO 11 |             |
-|  4       | GND          | 25     | GND            |             |
-|  1       | /CS          | 24     | CE0 / GPIO 8   | Default     |
-|  1       | /CS          | 26     | CE1 / GPIO 7   | Alternative |
-|  3       | /WP (IO2)    | TBD    | +3.3V          | or GPIO(*)  |
-|  7       | /HOLD        | TBD    | +3.3V          | or GPIO(*)  |
+| Chip Pin | Chip Signal  | Pi Pin | Pi Signal      | Notes       | My Color |
+|:--------:|:------------:|:------:|----------------|-------------|----------|
+|  8       | VCC          | 17     | +3.3V          | or GPIO(*)  | Red      |
+|  5       | DI (IO0)     | 19     | MOSI / GPIO 10 |             | Yel      |
+|  2       | DO (IO1)     | 21     | MISO / GPIO 9  |             | Blu      |
+|  6       | CLK          | 23     | SCLK / GPIO 11 |             | Wht      |
+|  4       | GND          | 25     | GND            |             | Blk      |
+|  1       | /CS          | 24     | CE0 / GPIO 8   | Default     | Grn      |
+|  1       | /CS          | 26     | CE1 / GPIO 7   | Alternative | Grn      |
+|  3       | /WP (IO2)    | TBD    | +3.3V          | or GPIO(*)  | Org      |
+|  7       | /HOLD        | TBD    | +3.3V          | or GPIO(*)  | Gry      |
 
-TODO: Verify mobo chip pinout
+When using generic SOP8 clips that are wired (e.g. from Amazon, they are very bad knock-offs that very hard to attach so they stay and make contact due to missing key features of the original ones. It's much better to use real ones like Pomona 5250 or 3M 923655-08 / 923650-08), they typically have IDC 2-row connector. The way the wiring is done, chip pins end up in the same geometric arrangement on the connector if connector is placed face down on the chip. Looking at the face of the connector (key is up indicated by ^^):
+
+| 1 | 2^|^3 | 4 |
+|---|---|---|---|
+| 8 | 7 | 6 | 5 |
+
 
 TODO: select which CEx to use in the service (/etc/default/??)
 
@@ -282,6 +287,16 @@ Read SFDP Register 5Ah, 00h, 00h, A7–A0, dummy, (D7-0)
 Enable Reset 66h
 
 Reset 99h
+
+### Macronix MX25L6445E
+
+From the datasheet (rev 1.8 Dec 26 2011):
+
+ > For the following instructions: WREN, WRDI, WRSR, SE, BE, BE32K, HPM, CE, PP, CP, 4PP, RDP, DP, WPSEL, SBLK, SBULK, GBLK, GBULK, ENSO, EXSO, WRSCUR, ENPLM, EXPLM, ESRY, DSRY and CLSR the CS# must go high exactly at the byte boundary; otherwise, the instruction will be rejected and not executed.
+
+ For the WRSR instruction it was experimentally established that writing 2 data bytes also rejects the write, must write only 1 data byte. The code was ammended to issue 1-byte write to WRSR. MX25L6406E datasheet contains the same statement, but earlier encounters with that chip (probably) did not exercise the WRSR register writes (as protection was not enabled). 
+ 
+ TODO: Which brings up a desire to make self-contained tests of all operations (round-trip) on each new encountered chip, so the library can "learn" of its bugs. Perhaps a telemetry feature - upon full-chip erase, for chip JEDEC ID not in the database, run all tests to check off all correct operations (collect data on anything failing), then erase again and proceed with intended operations. The risk is to enable protection and not being able to turn it off (e.g. not having control of /WP pin).
 
 ## TODOs
 

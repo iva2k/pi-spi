@@ -13,17 +13,22 @@
 # Description:       Show custom splashscreen
 ### END INIT INFO
 
+BOOTIMG=/etc/boot.jpg
+BOOTWAV=/etc/splash/boot.wav
+BOOTWAV=/etc/boot.wav
 audio_delay=3 ;# seconds
 duration=10   ;# seconds
 blend=3000    ;# milliseconds
 
 do_start () {
-  if [ -f /etc/boot.jpg ]; then
-    sudo /usr/bin/fbi -T 1 -t $duration --once --noverbose --blend $blend /etc/boot.jpg > /dev/null 2>&1 &
+  sudo ntpdate -b 0.debian.pool.ntp.org
+  if [ -f $BOOTIMG ]; then
+    sudo /usr/bin/fbi -T 1 -t $duration --once --noverbose --blend $blend $BOOTIMG > /dev/null 2>&1 &
   fi
-  if [ -f /etc/boot.wav ]; then
+  # sudo /bin/openvt -c 2 -f printf "\033[1;1H\033[2J"
+  if [ -f $BOOTWAV ]; then
     /bin/sleep $audio_delay
-    sudo /usr/bin/aplay /etc/boot.wav >/dev/null 2>&1 &
+    sudo /usr/bin/aplay $BOOTWAV >/dev/null 2>&1 &
   fi
   if [ -f /home/pi/app_info ]; then
     type=`cat /home/pi/app_info | grep Type | cut -d ' ' -f 2`

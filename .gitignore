@@ -1,2 +1,8 @@
 /.vscode/settings.json
 *.pyc
+*.bak
+log.*
+*.log
+*.bin
+*.zip
+_reference/

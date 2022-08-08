@@ -118,6 +118,13 @@ class spiflash(object):
         # sleep_ms(10)
         self.wait_until_not_busy()
 
+    def write_status1(self,s1):
+        self.write_enable()
+        sleep_ms(WAITWREN)
+        self.spi.xfer2([WRSR,s1])
+        # sleep_ms(10)
+        self.wait_until_not_busy()
+
     def write_sub_page(self, addr1, addr2, addr3, page):
         # print('DEBUG spiflash.write_sub_page(%02X %02X %02X data[%d])' % (addr1, addr2, addr3, len(page)))
         # return
@@ -350,6 +357,9 @@ class spiflash(object):
         
         # Implementnation:
         print('Resetting chip protection...')
+        # Some chips insist on rising CS right after byte write in order to reset SRWD (e.g. MX25L6445E)
+        self.write_status1(0x00)
+        # Just repeat longer write for chips that don't mind 2 byte writes to WRSR.
         self.write_status(0x00, 0x00)
         sr = self.read_status()
         print('  Result SR1: 0x%02X SR0: 0x%02X' % (sr[1], sr[0]) )
